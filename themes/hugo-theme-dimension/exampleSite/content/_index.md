@@ -1,5 +1,5 @@
 ---
-title: Your Name
-description: A great human
+title: Adrian van Kampen
+description: HEC Lausanne
 background: "images/bg.jpg"
 ---

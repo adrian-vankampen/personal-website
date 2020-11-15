@@ -1,5 +1,5 @@
 ---
 background: images/bg.jpg
-description: A great human
-title: Your Name
+description: BSc in Management - HEC Lausanne (SWITZERLAND)
+title: Adrian van Kampen
 ---

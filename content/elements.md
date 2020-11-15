@@ -1,5 +1,5 @@
 ---
-title: elements
+title: CV
 ---
 
 ## Table of contents
