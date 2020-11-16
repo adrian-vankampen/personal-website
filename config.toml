@@ -1,4 +1,4 @@
 baseURL = "https://www.vankampen.ch/"
 languageCode = "en-us"
 title = "My New Hugo Site"
-theme = "hugo-theme-dimension"
+theme = "starter-academic"
