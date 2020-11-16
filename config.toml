@@ -1,4 +1,4 @@
-baseURL = "http://www.vankampen.ch/"
+baseURL = "https://www.vankampen.ch/"
 languageCode = "en-us"
 title = "Adrian van Kampen"
 theme = "hugo-theme-dimension"
