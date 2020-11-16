@@ -1,0 +1,253 @@
+## Exercise 1: abalone
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+source(here::here("scripts/setup.R"))
+```
+
+Let's first load a dataset:
+
+```{r}
+abalone <- read_csv(file = here::here("data/abalone.csv"))
+
+abalone[1:100,] %>% 
+   kbl(caption = "Abalone dataset (100 first rows)") %>%  
+   kable_paper(full_width = F) %>% 
+   scroll_box(width = "100%", height = "300px")
+```
+
+<p>&nbsp;</p>   
+These data consist of 4177 observations of 9 attributes.
+
+Here is a description of each attribute :
+   
+- `Sex nominal` : male, female and infant
+- `Length` (mm) : Longest shell measurement 
+- `Diameter` (mm) : perpendicular to length 
+- `Height` (mm) : with meat in shell
+- `Whole weight` (grams) : whole abalone
+- `Shucked weight` (grams) : weight of meat
+- `Viscera weight` (grams) : gut weight (after bleeding)
+- `Shell weight` (grams) : after being dried
+- `Rings` (integer) : +1.5 gives the age in years
+
+### Wrangling
+
+1. Extract a tibble `length_sex_ring` which contains the `sex`, `diameter`,
+   `height` and `rings` columns. The dataset should be filtered for
+   length strictly larger than 0.6 and be sorted by increasing `sex` and
+   decreasing `ring`.
+   
+```{r}
+length_sex_ring <- abalone %>%
+   filter(length > 0.6) %>% 
+   select(sex, diameter, height, rings) %>% 
+   arrange(sex, desc(rings))
+
+length_sex_ring %>% 
+   kbl(caption = "Abalone with length strictly larger than 0.6") %>%  
+   kable_paper(full_width = F) %>% 
+   scroll_box(width = "100%", height = "300px")
+```
+<p>&nbsp;</p>
+2. Extract a tibble `count_prop` of dimension 3 x 3,
+   which contains the `sex`, `count` and `prop` columns.
+   The dataset should be grouped by increasing `sex` with counted numbers
+   of each group. Then calculate the proportion of each count.
+   
+```{r}
+count_prop <- abalone %>%
+   group_by(sex) %>%
+   summarize(count = n()) %>%
+   mutate(prop = count/sum(count))
+
+count_prop %>% 
+   kbl(caption = "Number and proportion per sex") %>%  
+   kable_paper(full_width = F) %>%
+   column_spec(c(1,2,3), width="100px")
+   
+```
+<p>&nbsp;</p>
+3. Extract a tibble `mean_max_min` of dimension 3 x 4, which contains the
+   `sex`, `weight_mean`, `weight_max` and `weight_min` columns.
+   The dataset should be grouped by increasing `sex` and summarized by
+   finding mean, max and min of `shucked_weight`.
+   
+```{r}
+mean_max_min <- abalone %>%
+   group_by(sex) %>%
+   summarize(weight_mean = mean(shucked_weight), 
+             weight_max = max(shucked_weight), 
+             weight_min = min(shucked_weight))
+
+mean_max_min %>% 
+   kbl(caption = "Weight's stat per sex") %>%  
+   kable_paper(full_width = F)
+```
+<p>&nbsp;</p>
+4. Extract a tibble `filter_na` of dimension 2963 x 10,
+   which contains all columns. The dataset should be filtered for diameter
+   equal to `NA` or strictly greater than 0.36. The column `X` should be
+   renamed as `index` and you should also reorder the columns such that
+   `index`, `sex`, `length`, `diameter` and `rings` come first and then
+   the other columns appear in their original order.
+   
+```{r}
+filter_na <- abalone %>%
+   filter(is.na(diameter) | diameter > 0.36) %>%
+   rename(index = X) %>%
+   select(index,
+          sex,
+          length,
+          diameter,
+          rings,
+          everything())
+
+filter_na %>% 
+   kbl(caption = "Abalone with diameter strictly greater than 0.36") %>%  
+   kable_paper(full_width = F) %>% 
+   scroll_box(width = "100%", height = "300px")
+```
+
+<p>&nbsp;</p>
+5. Extract a tibble `transmute_abalone` of dimension 4177 x 2,
+   which contains the `whole_weight_in_mg` and `water_weight_in_mg` columns,
+   corresponding respectively to the whole weight and water weight in
+   milligrams.
+   
+```{r}
+transmute_abalone <- abalone %>%
+   mutate(water_weight = whole_weight - (shucked_weight+viscera_weight+shell_weight)) %>%
+   transmute(whole_weight_in_mg = 1000*whole_weight, 
+             water_weight_in_mg = 1000*water_weight)
+
+transmute_abalone %>% 
+   kbl(caption = "Specific weight in mg ") %>% 
+   kable_paper(full_width = F) %>%
+   scroll_box(width = "100%", height = "300px")
+```
+
+<p>&nbsp;</p>   
+6. Extract a tibble `first_1000_rank` of dimension 1000 x 3,
+   which contains the `diameter`, `rings` and `rings_rank` columns, sorted
+   by ascending `rings_rank`, which is a column containing the rank
+   corresponding to the value of the `rings` variable.
+   Then, select the three columns and rank on the `rings` and
+   filter for the rows corresponding to the first 1000 `rings_rank`.
+   
+```{r}
+first_1000_rank <- abalone %>%
+   arrange(rings) %>%
+   mutate(rings_rank = c(1:length(rings))) %>%
+   select(diameter, 
+          rings, 
+          rings_rank) %>% 
+   filter(rings_rank <= 1000)
+
+first_1000_rank %>% 
+   kbl(caption = "The 1000 abalone that have the least rings") %>% 
+   kable_paper(full_width = F) %>% 
+   scroll_box(width = "100%", height = "300px")
+```
+
+<p>&nbsp;</p>   
+7. Extract a tibble `n_distinct_rings_by_sex` of dimension 3 x 2,
+   which contains the `sex` and `distinct_rings` columns.
+   The dataset should be grouped by `sex` and then summarized to
+   count distinct rings in each group.
+
+```{r}
+n_distinct_rings_by_sex <- abalone %>%
+   group_by(sex) %>% 
+   summarize(distinct_rings = n_distinct(rings))
+
+n_distinct_rings_by_sex %>% 
+   kbl(caption = "Total number of distinct rings per sex") %>%  
+   kable_paper(full_width = F)
+```
+  
+### Visualization
+
+8. Draw a density plot of `rings`, colored by `sex`.
+  
+```{r}
+sex_names <- c(`F` = "Female",
+               `I` = "Infant",
+               `M` = "Male")
+d <- abalone %>%
+   ggplot(aes(x = rings, color = sex)) + 
+   geom_density(alpha = 0.4) +
+   ggtitle("Density plot of rings") +
+   ylab("") +
+   xlab("Rings") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+   scale_color_manual(labels = c("Female", "Infant", "Male"), values = c("red","green", "blue"))
+
+d 
+```
+  
+9. Draw a histogram of the `diameter` with `binwidth` as 0.05,
+   filled and faceted by `sex`.
+  
+```{r}
+h <- abalone %>%
+   ggplot(aes(x = diameter, fill = sex, col = I("black"))) +
+   geom_histogram(binwidth = 0.05,
+                  show.legend = F) +
+   facet_wrap(~ sex, labeller = as_labeller(sex_names)) +
+   ylab("Number of observations") +
+   xlab("Diameter") +
+   ggtitle("Diameter by sex") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+h
+```
+  
+10. Draw a boxplot of `diameter` against `sex`.
+   The ordering of boxes from left to right should be in descending order
+   of the median `diameter` per group.
+  
+```{r}
+b <- abalone %>%
+   ggplot(aes(x = fct_reorder(sex, diameter, median, .desc = TRUE), y = diameter, fill = sex)) +
+   geom_boxplot(show.legend = F) +
+   xlab("Sex") +
+   ylab("Diameter (in mm)") +
+   scale_fill_discrete(name = "Sex", labels = sex_names) +
+   ggtitle("Diameter by sex") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+b 
+```
+  
+11. Draw a point plot of `diameter` against `rings` with a smooth curve
+   obtained using the `loess` method, and faceted by `sex`.
+  
+```{r}
+diameter_by_rings_pp <- abalone %>%
+   ggplot(aes(x = rings, y = diameter, col = sex)) +                 
+   geom_point(show.legend = F, size = 0.8) + 
+   geom_smooth(method = "loess", col = I("black"), se = F) +
+   ylab("Diameter (in mm)") +
+   xlab("Rings") +        
+   facet_wrap( ~ sex, labeller = as_labeller(sex_names)) +
+   ggtitle("Diameter by the number of rings") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+diameter_by_rings_pp
+```
+  
+12. Draw a violin plot of `whole_weight` against `length` faceted by `sex`.
+
+```{r}
+v <- abalone %>%
+   ggplot(aes(x = length, y = whole_weight, fill = sex)) +
+   geom_violin(alpha = 0.8, show.legend = F) +
+   ylab("Whole weight (in grams)") +
+   xlab("Length") +
+   ggtitle("Whole weight by length") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+   facet_wrap( ~ sex, labeller = as_labeller(sex_names)) 
+   
+v
+```
+  

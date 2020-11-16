@@ -1,0 +1,321 @@
+## Exercise 3: football
+
+```{r}
+source(here::here("scripts/setup.R"))
+```
+
+Let's first load a dataset:
+
+```{r}
+fu <- read_csv(file = here::here("data/football.csv"))
+
+fu[1:100,] %>%
+   kbl(caption = "100 first games of our 'fu' dataset (40,945 matches total)") %>%
+   kable_paper(full_width = TRUE) %>%
+   column_spec(column=1, width="80px") %>%
+   scroll_box(width="100%", height="500px")
+```
+
+
+<p>&nbsp;</p>
+
+These data consist of 40945 observations of 9 attributes.
+
+Here is a description of each attribute :
+   
+- `date` : The date on which the game takes place
+- `home_team` : The country's name of the home team 
+- `away_team` : The country's name of the away team 
+- `home_score` : The score of the home team
+- `away_score` : The score of the home team
+- `tournament` : The tournament's name of the game
+- `city` : The name of the city where the game takes place
+- `country` : The name of the country where the game takes place
+- `neutral` (logical) : TRUE if the game is played on a neutral place (e.i neither on the home country nor on the away country)
+
+### Wrangling and tidying
+
+1. Sometimes, we want to know the year of a game happening instead of
+   the exact dates. So let's split the dates into three columns:
+   `year`, `mon`, and `day`, and save the result tibble to `fu_separated`.
+
+```{r}
+fu_separated <- fu %>%
+   separate(date, into=c("year", "mon", "day"), sep = "[-]+")
+
+# For this exercise, we show only the 100 first observations of our dataset, since it is very long and showing the entire set would be both useless and heavy to load when viewing the report.
+
+fu_separated[1:100,] %>%
+   kbl(caption = "100 first games of our dataset with dates in separated format (40,945 rows total)") %>%
+   kable_paper(full_width = TRUE) %>%
+   scroll_box(width="100%", height="500px")
+```
+<p>&nbsp;</p>
+2. Notice that the data is recorded per game instead of per team. Suppose
+   that we want to have to study the game data per team with the following
+   information: `year`, `mon`, `day`, `home_score`, `away_score`,
+   `tournament`, `city`, `country`, `neutral`, `team_type`, `team`.
+   To do that, we need to list all the games each team played: thus, each
+   game will be recorded twice, once for the home team and once for
+   the away team.
+   Extract such a tibble from `fu_separated` and assign it to `fu_tidy`.
+
+   
+```{r}
+fu_tidy <- fu_separated %>%
+   pivot_longer(c("home_team", "away_team"),
+                # Takes the team names from the two columns
+                names_to = "team_type",
+                # Puts the type of team (Home or away) into a new column
+                values_to = "team") # ... and the name of the team into another.
+
+fu_tidy[1:100, ] %>%
+   kbl(caption = "100 first rows of our tidied dataset (81,890 rows total; each pair of rows corresponds to one game)") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%", height="500px")
+```
+
+<p>&nbsp;</p>
+3. Now, notice that the two columns `home_score` and `away_score` are
+   impractical: they do not indicate whether they correspond to goals scored
+   or conceded. Additionally, an important statistic is the goal difference,
+   namely the difference between goals scored and conceded.
+   From `fu_tidy`, let's extract a tibble `fu_team` that contains
+   `year`, `mon`, `day`, `scored`, `conceded`, `gd`, `team`,
+   `city`, `country`.
+   
+```{r}
+fu_team <- fu_tidy %>%
+   mutate(
+      scored = ifelse(team_type == "home_team", home_score, away_score),
+      # Goals scored by home team is equivalent to home_score, and vice-versa
+      conceded = ifelse(team_type == "home_team", away_score, home_score),
+      gd = scored - conceded
+   ) %>%
+   select(year:day, scored:gd, team, city, country)
+
+fu_team[1:100, ] %>%
+   kbl(caption = "100 first rows of our dataset from each team's perspective (81,890 rows total)") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%", height="500px")
+```
+
+<p>&nbsp;</p>
+4. The `city` and `country` column represents where the game was held.
+   From `fu_team`, extract a tibble `fu_city` that concatenate the city
+   and country information into one column called `place`.
+
+   
+```{r}
+fu_city <- fu_team %>%
+   unite(col="place", city, country, sep="_")
+
+fu_city[1:100, ] %>%
+   kbl(caption = "100 first rows of our dataset with city names concatenated with country names (81,890 rows total)") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%", height="500px")
+```
+
+<p>&nbsp;</p>
+5. From `fu_city`, let's extract `fu_england`, a tibble containing
+   the yearly average goals scored, goals conceded, and goal differences
+   for the English team evolved over the years, sorted by descending
+   goal differences, descending goals scored, and ascending goals conceded.
+
+   
+```{r}
+fu_england <- fu_city %>%
+   group_by(year) %>%
+   filter(team == "England") %>%
+   summarize(
+      scored = mean(scored),
+      conceded = mean(conceded),
+      gd = mean(gd)
+   ) %>%
+   arrange(desc(gd), desc(scored), conceded)
+
+fu_england %>%
+   kbl(caption = "Yearly averages for the English team (sorted primarly by goal differences)") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%", height="500px", box_css="text-align:center;")
+```
+
+<p>&nbsp;</p>
+6. In the following, we want to look at the number of points scored and
+   attendance in various international competitions, but first,
+   some tidying that is required, as there is some double accounting
+   in `fu`.
+   Let's create a tibble `fu_tidy2` that contains columns `date`,
+   `tournament`, `team_type`, `team`, `scored`, and `year`, where
+   `date` and `tournament` as as in `fu`, and
+     - `team_type` is `"home_team"` or `"away_team"`,
+     - `team` is the name of the national team considered (i.e., either the
+       home or away team for each of the two `home_team` and `away_team`
+       columns of `fu`),
+     - `scored` is the number of points scored by the team under
+       consideration,
+     - `year` is a numeric extracted from `date`.
+
+```{r}
+fu_tidy2 <- fu %>%
+   pivot_longer(c("home_team", "away_team"),
+                names_to = "team_type",
+                values_to = "team") %>%
+   mutate(
+      scored = ifelse(team_type == "home_team", home_score, away_score),
+      # Allocates goals scored by the team to that team
+      year = year(date)
+   ) %>%
+   select(date, tournament, team_type, team, scored, year)
+
+
+fu_tidy2[1:100, ] %>%
+   kbl(caption = "100 first rows of our dataset if long format (81,890 rows total)") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width = "100%",
+              height = "500px",
+              box_css = "text-align:center;")
+```
+     
+### Visualization
+
+<p>&nbsp;</p>
+
+7. From `fu_tidy2`, let's now look at the yearly number of goals scored from
+   2000 to 2019 for teams England, Germany, France, Belgium, Italy and Spain.
+   We'll do that by extracting `fu1`, a tibble obtained by grouping by team
+   and year and summing the number of goals for each groups,
+   before filtering appropriately and transforming `team` as a factor
+   sorted by median goals scored.
+
+```{r}
+fu1 <- fu_tidy2 %>%
+   group_by(team, year) %>%
+   summarize(scored = sum(scored)) %>%
+   ungroup() %>%
+   filter(
+      year >= 2000,
+      year <= 2019,
+      team %in% c("England", "Germany", "France", "Belgium", "Italy", "Spain")
+   ) %>%
+   mutate(team = fct_reorder(team, scored, median, na.rm = TRUE)) # Transforms "team" into a factor with levels ordered by median score
+
+fu1 %>%
+   kbl(caption = "Yearly number of goals from 2000 to 2019 for 6 European teams") %>%
+   kable_paper(full_width = FALSE) %>%
+   column_spec(1, width = "100px") %>%
+   column_spec(2, width = "100px") %>%
+   column_spec(3, width = "100px") %>%
+   scroll_box(width = "100%",
+              height = "300px",
+              box_css = "text-align:center;")
+```
+
+
+<p>&nbsp;</p>
+
+8. Use `fu1` to produce boxplots of the number of goals scored for each team.
+   
+```{r}
+boxplot3.8 <- ggplot(fu1, aes(x=team, y=scored, fill=team)) +
+   geom_boxplot(show.legend=FALSE) +
+   ylab("") +
+   ggtitle("Number of goals scored") +
+   xlab("") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+boxplot3.8
+```
+
+
+<p>&nbsp;</p>
+
+9. Before proceeding to the next plot, let's first create a tibble `fu2`
+   containing the relevant data: it should be obtained from `fu_tidy2` by
+   transforming `tournament` into a factor containing the levels
+   `"FIFA World Cup"`, `"UEFA Euro"`, and `"UEFA Nations League"`,
+   dropping NAs (i.e., observations for all other tournaments), and
+   filtering for the same 6 teams as well as observations from 2000 onwards.
+   
+```{r}
+fu2 <- fu_tidy2 %>%
+   filter(
+      tournament %in% c("FIFA World Cup", "UEFA Euro", "UEFA Nations League"),
+      team %in% c("England", "Germany", "France", "Belgium", "Italy", "Spain"),
+      year >= 2000
+   ) %>%
+   mutate(tournament = factor(tournament))
+
+fu2 %>%
+   kbl(caption = "Goals scored in the FIFA World Cup, UEFA Euro and UEFA Nations League from year 2000 for the same 6 European teams") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width = "100%",
+              height = "500px",
+              box_css = "text-align:center;")
+```
+
+
+<p>&nbsp;</p>
+
+10. Using `fu2`, let's now draw a barplot representing the number of games that
+   team England, Germany, France, Belgium, Italy and Spain
+   participated in the FIFA World Cup, UEFA Euro, and UEFA Nations League,
+   since 2000.
+   In the bar plot, each group of columns should represent a team
+   and different column for different tournament should be
+   shown in different colors.
+
+```{r}
+barplot3.10 <- ggplot(fu2, aes(x=team, fill=tournament)) +
+   geom_bar(position=position_dodge()) +
+   ggtitle("Number of games played") +
+   ylab("") +
+   xlab("") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+barplot3.10
+```
+
+
+<p>&nbsp;</p>
+
+11. Use `fu_tidy2` to extract `fu3`, containing a ranking the national teams
+   by World cup attendance filtered for those having attended at least 9
+   times.
+   
+```{r}
+fu3 <- fu_tidy2 %>%
+   filter(team %in% unique(fu$country),
+          str_detect(tournament, "World Cup$")) %>%
+   group_by(team) %>%
+   summarize(n = n_distinct(year)) %>%
+   filter(n >= 9) %>%
+   arrange(desc(n))
+
+fu3 %>%
+   kbl(caption = "Most attendances to 'World cup' tournaments (by national teams only)") %>%
+   kable_paper(full_width = FALSE) %>%
+   column_spec(1, width="150px") %>%
+   column_spec(2, width="50px")
+```
+
+
+<p>&nbsp;</p>
+
+12. Then, use `fu3` to create barplot of the world cup attendance
+    (i.e., `n`) per team.
+    Hints: use `fct_reorder()` to transform `team` as a factor sorted by 
+    attendance, and `stat = "identity"`, and `coord_flip()` to flip the axis 
+    so that country names can be shown properly.
+   
+```{r}
+barplot3.12 <- ggplot(fu3, aes(x=fct_reorder(team, n), y=n, fill=team)) +
+   geom_bar(stat="identity", show.legend=FALSE) +
+   ggtitle("Number of attendances to a World Cup") +
+   ylab("") +
+   xlab("") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+   coord_flip()
+
+barplot3.12
+```

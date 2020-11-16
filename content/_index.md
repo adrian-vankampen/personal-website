@@ -1,5 +1,5 @@
 ---
-background: images/bg.jpg
-description: BSc in Management - HEC Lausanne (SWITZERLAND)
 title: Adrian van Kampen
+description: Bachelor of Science in Management - HEC Lausanne
+background: "images/bg.jpg"
 ---

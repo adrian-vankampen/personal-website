@@ -1,0 +1,197 @@
+## Exercise 4: iris
+
+```{r}
+source(here::here("scripts/setup.R"))
+```
+
+Let's convert iris to a tibble:
+
+```{r}
+iris <- as_tibble(iris)
+
+iris %>%
+   kbl(caption = "Length and width of sepals and petals of 3 different species of iris") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%", height="300px")
+```
+
+<p>&nbsp;</p>
+This famous (Fisher's or Anderson's) iris data set gives the measurements in centimeters of the variables sepal length and width and petal length and width, respectively, for 50 flowers from each of 3 species of iris. The species are Iris setosa, versicolor, and virginica.
+
+These data consist of 150 observations of 5 attributes.
+
+### Wrangling and tidying
+
+1. Use `summary()` to on `iris` to compute summaries for all variables
+   assign the result to variable `summary_iris`.
+   In the remainder of this exercise, we'll try to reproduce the content of
+   this summary table by breaking it down in several steps.
+
+   
+```{r}
+summary_iris <- summary(iris)
+
+summary_iris %>%
+   kbl(caption = "Summary of the iris dataset") %>%
+   kable_paper(full_width = FALSE)
+```
+
+<p>&nbsp;</p>
+
+2. First, let's compute the column that contains the counts across the
+   different species of iris and assign it to `species_count`, which should
+   contain two colums `Species` and `num`, representing each specie of iris
+   and how many of each specie are found in the dataset.
+
+   
+```{r}
+species_count <- iris %>%
+   group_by(Species) %>%
+   summarize(num = n())
+
+species_count %>%
+   kbl(caption = "Number of observations per species") %>%
+   kable_paper(full_width = FALSE)
+```
+
+<p>&nbsp;</p>
+
+3. Now let's focus on the numerical variables: for all columns except
+   for `Species`, compute their minimum, 25th quantile, median, mean,
+   75th quantile and maximum, and assign the result to `summary_stats`.
+   
+```{r}
+# We assign functions that we seek to a list to refer to them later in a concise way.
+func_list <- list("Min." = min,
+                  "1st Qu." = ~ quantile(.x, 0.25),
+                  "Median" = median,
+                  "Mean" = mean,
+                  "3rd Qu." = ~ quantile(.x, 0.75),
+                  "Max." = max)
+
+
+summary_stats <- iris %>%
+   # Applies all functions declared above to each numerical column of the dataset.
+   summarize(across(is.numeric, 
+                    func_list,
+                    .names = "{.col}_{.fn}")) %>%
+   # Selects the columns we are interested in using our functions list again.
+   select(ends_with(names(func_list)))
+
+summary_stats %>%
+   kbl(caption = "Summary of numerical variables computed 'manually'") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%")
+```
+
+<p>&nbsp;</p>
+
+4. Let's now tidy this tibble to get a result that is easier to understand
+   and closer to the output `summary()`: we want to transform this one-row
+   tibble into a longer tibble where each row is a variable
+   (i.e., one of `Petal.Length`, `Petal.Width`, `Sepal.Length` and
+   `Sepal.Width`), and each column is a summary statistics computed for
+   the corresponding variable.
+   We'll do that in three steps:
+   First, we will transform our one-row tibble into a tibble `summary_long`
+   with three columns:
+     - `variable`, containing the variable name (e.g. `Sepal.Length`),
+     - `stat`, containing the name of the summary statistic computed on
+       the `variable` of the same row (e.g. `1st Qu.`),
+     - `value` containing the value of the `stat` (e.g. `5.1`).
+  Assign the result to tibble `summary_long`.
+
+```{r}
+summary_long <- summary_stats %>%
+   pivot_longer(cols = everything(),
+                names_to = "var_stat", # Create a temporary variable that will be split in two columns later with a separate()
+                values_to = "value") %>%
+   separate(col = var_stat, into = c("variable", "stat"), sep = "_")
+
+summary_long %>%
+   kbl(caption = "Same table in a 'long' form") %>%
+   kable_paper(full_width = FALSE) %>%
+   scroll_box(width="100%", height="300px")
+```
+
+<p>&nbsp;</p>
+
+5. As for the second step, from `summary_long`, extract a tibble
+   `summary_stats_tidy` in which each row is a variable
+   (i.e., one of `Petal.Length`, `Petal.Width`, `Sepal.Length` and
+   `Sepal.Width`) and each column is a summary stat computed
+   for each variable (i.e., `Min.`, `1st Qu.`, `Median`, `Mean`,
+   `3rd Qu.` and `Max.`).
+
+```{r}
+summary_stats_tidy <- summary_long %>%
+   pivot_wider(names_from = stat,
+               values_from = value)
+
+summary_stats_tidy %>%
+   kbl(caption = "Same table in a more readable format") %>%
+   kable_paper(full_width = FALSE)
+```
+
+<p>&nbsp;</p>
+
+6. We are getting closer! The final step: we need to transpose our tibble to
+   something similar to `summary(iris)`. Transpose `summary_stats_tidy` into
+   a tibble `summary_stats_transposed`. It should have five columns:
+   the first, named `Stat` contains the name of the summary statistic
+   and the others (`Petal.Length`, `Petal.Width`, `Sepal.Length` and
+   `Sepal.Width`) contain the values for each variable.
+   To do that, you can successively use `pivot_longer` and `pivot_wider`.
+
+```{r}
+summary_stats_transposed <- summary_stats_tidy %>%
+   pivot_longer(cols = -variable, # Pivot on all columns except "variable"
+                names_to = "Stat",
+                values_to = "values") %>%
+   pivot_wider(names_from = variable,
+               values_from = values)
+
+summary_stats_transposed %>%
+   kbl(caption = "Same table as question 5, but transposed") %>%
+   kable_paper(full_width = FALSE)
+```
+
+### Visualization
+
+<p>&nbsp;</p>
+
+7.  Draw a scatterplot of the petal length against sepal length, colored by 
+    species, and add a linear regression line for each group.
+   
+```{r}
+scatterplot4.7 <- iris %>%
+   ggplot(aes(x=Sepal.Length, y=Petal.Length, color=Species)) +
+   geom_point() +
+   geom_smooth(method="lm", se=FALSE) +
+   xlab("Sepal length") +
+   ylab("Petal length") +
+   ggtitle("Lengths of petals vs sepals") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+scatterplot4.7
+```
+    
+<p>&nbsp;</p>
+
+8. Now, let's produce a scatterplot of sepal width against sepal length, 
+   faceted by species, and add a linear regression line for each group.
+   
+```{r}
+scatterplot4.8 <- iris %>%
+   ggplot(aes(x=Sepal.Length, y=Sepal.Width, color=Species)) +
+   geom_point(show.legend=FALSE) +
+   geom_smooth(method="lm", se=FALSE, show.legend=FALSE) +
+   xlab("Sepal length") +
+   ylab("Sepal width") +
+   ggtitle("Sepal's width vs length") +
+   theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+   facet_wrap(~ Species)
+
+scatterplot4.8
+```
+   
